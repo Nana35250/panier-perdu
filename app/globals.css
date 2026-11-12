@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+@theme {
+  --color-sapin: #14342b;
+  --color-brique: #d9480f;
+  --color-creme: #faf6ee;
+  --color-encre: #1b1b18;
+}
+
+@theme inline {
+  --font-titre: var(--font-fraunces), Georgia, serif;
+  --font-texte: var(--font-instrument), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-creme);
+  color: var(--color-encre);
+  font-family: var(--font-texte);
+}
