@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Instrument_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -17,6 +18,7 @@ const instrument = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://panier-perdu-lyhm.vercel.app"),
   title: "Panier Perdu : récupère les paniers abandonnés de ta boutique",
   description:
     "Deux relances automatiques pour récupérer les paniers abandonnés de ta petite boutique en ligne. 9 € par mois, sans engagement.",
@@ -34,7 +36,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={`${fraunces.variable} ${instrument.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
