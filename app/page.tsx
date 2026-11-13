@@ -34,7 +34,7 @@ export default function Home() {
       </p>
 
       <a
-        href="#"
+        href="/commencer"
         className="mt-8 block rounded-lg bg-sapin px-6 py-4 text-center text-lg font-bold text-creme"
       >
         Commencer, c’est gratuit
@@ -71,7 +71,7 @@ export default function Home() {
           {PRIX} € par mois, relances illimitées.
         </p>
         <a
-          href="#"
+          href="/commencer"
           className="mt-6 block rounded-lg bg-sapin px-6 py-4 text-center text-lg font-bold text-creme"
         >
           Commencer, c’est gratuit
