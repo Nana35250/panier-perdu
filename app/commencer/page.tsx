@@ -126,7 +126,8 @@ export default function Commencer() {
       <p className="mt-6 leading-relaxed">
         Tu reçois {rCommandes.label.toLowerCase()} commandes par mois, avec un
         panier moyen de {rPanier.label.toLowerCase()}. Cela fait environ{" "}
-        {paniersAbandonnes} paniers remplis puis abandonnés. {situation[rSituation.valeur]}
+        {paniersAbandonnes} paniers remplis puis abandonnés.{" "}
+        {situation[rSituation.valeur]}
       </p>
 
       <section className="mt-10 border-t border-sapin/20 pt-8">
@@ -152,8 +153,15 @@ export default function Commencer() {
       </section>
 
       <Link
-        href="/"
+        href={`/abonnement?p=${Math.round(perdu)}`}
         className="mt-10 block rounded-lg bg-sapin px-6 py-4 text-center text-lg font-bold text-creme"
+      >
+        Garder mon résultat et continuer
+      </Link>
+
+      <Link
+        href="/"
+        className="mt-5 block text-center font-semibold text-sapin underline"
       >
         Retour à l’accueil
       </Link>
