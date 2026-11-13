@@ -119,7 +119,16 @@ export default async function Espace() {
         </>
       )}
 
-      <Link href="/" className="mt-10 block font-bold text-sapin underline">
+      <form action="/auth/deconnexion" method="post" className="mt-10">
+        <button
+          type="submit"
+          className="block w-full rounded-lg border-2 border-sapin px-6 py-4 text-center text-lg font-bold text-sapin"
+        >
+          Me déconnecter
+        </button>
+      </form>
+
+      <Link href="/" className="mt-6 block font-bold text-sapin underline">
         Retour à l’accueil
       </Link>
     </main>
