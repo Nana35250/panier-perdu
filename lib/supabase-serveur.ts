@@ -1,8 +1,14 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 export const SUPABASE_URL = "https://qhdcufsqmmbwjycouoqm.supabase.co";
+
+type CookieAEcrire = {
+  name: string;
+  value: string;
+  options: CookieOptions;
+};
 
 export async function clientServeur() {
   const magasin = await cookies();
@@ -14,7 +20,7 @@ export async function clientServeur() {
         getAll() {
           return magasin.getAll();
         },
-        setAll(liste) {
+        setAll(liste: CookieAEcrire[]) {
           try {
             liste.forEach(({ name, value, options }) =>
               magasin.set(name, value, options)
