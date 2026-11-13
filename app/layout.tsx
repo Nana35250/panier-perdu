@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Fraunces, Instrument_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -38,6 +39,19 @@ export default function RootLayout({
     <html lang="fr" className={`${fraunces.variable} ${instrument.variable}`}>
       <body>
         {children}
+        <footer className="mx-auto max-w-xl border-t border-sapin/20 px-6 py-8 text-sm">
+          <nav className="flex flex-wrap gap-x-6 gap-y-3 font-semibold text-sapin">
+            <Link href="/mentions-legales" className="underline">
+              Mentions légales
+            </Link>
+            <Link href="/conditions-generales" className="underline">
+              Conditions générales de vente
+            </Link>
+            <Link href="/confidentialite" className="underline">
+              Confidentialité
+            </Link>
+          </nav>
+        </footer>
         <Analytics />
       </body>
     </html>
