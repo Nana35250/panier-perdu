@@ -7,19 +7,34 @@ export const metadata = {
   robots: { index: false },
 };
 
-export default async function Espace() {
+export default async function Espace({
+  searchParams,
+}: {
+  searchParams: Promise<{ [cle: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const erreur = Array.isArray(params.erreur) ? params.erreur[0] : params.erreur;
+  const boutiqueOk = params.boutique === "ok";
+
   const supabase = await clientServeur();
   const { data } = await supabase.auth.getUser();
   const email = data.user?.email;
-  if (!email) redirect("/connexion");
+  const utilisateurId = data.user?.id;
+  if (!email || !utilisateurId) redirect("/connexion");
 
+  const base = clientAdmin();
   const motif = email.replace(/[\\%_]/g, "\\$&");
-  const { data: lignes, error } = await clientAdmin()
+  const { data: lignes, error } = await base
     .from("abonnements")
     .select("statut, cree_le")
     .ilike("email", motif)
     .order("cree_le", { ascending: false })
     .limit(1);
+
+  const { data: boutiques } = await base
+    .from("boutiques")
+    .select("domaine")
+    .eq("utilisateur_id", utilisateurId);
 
   const abonnement = lignes?.[0];
 
@@ -111,10 +126,59 @@ export default async function Espace() {
             <h2 className="font-titre text-xl font-black text-sapin">
               Ta boutique
             </h2>
-            <p className="mt-3 leading-relaxed">
-              Aucune boutique n’est encore connectée. La connexion à ta boutique
-              n’est pas encore disponible : tu la feras depuis cette page.
-            </p>
+
+            {boutiqueOk && (
+              <p className="mt-3 font-semibold text-sapin">
+                Ta boutique est connectée.
+              </p>
+            )}
+            {erreur === "boutique" && (
+              <p className="mt-3 font-semibold text-brique">
+                Cette adresse n’est pas valide. Elle ressemble à
+                ma-boutique.myshopify.com.
+              </p>
+            )}
+            {erreur === "installation" && (
+              <p className="mt-3 font-semibold text-brique">
+                L’installation n’a pas abouti. Réessaie dans un instant.
+              </p>
+            )}
+
+            {boutiques && boutiques.length > 0 ? (
+              <div className="mt-4 rounded-lg border-2 border-sapin px-5 py-4">
+                <p className="font-bold text-sapin">Boutique connectée</p>
+                {boutiques.map((b) => (
+                  <p key={b.domaine} className="mt-1 break-all">
+                    {b.domaine}
+                  </p>
+                ))}
+                <p className="mt-2 text-sm text-encre/70">
+                  La lecture des paniers abandonnés arrive à l’étape suivante.
+                </p>
+              </div>
+            ) : (
+              <form action="/api/shopify/install" method="get" className="mt-4">
+                <label htmlFor="shop" className="block font-semibold text-sapin">
+                  Adresse de ta boutique Shopify
+                </label>
+                <input
+                  id="shop"
+                  name="shop"
+                  type="text"
+                  required
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  placeholder="ma-boutique.myshopify.com"
+                  className="mt-2 block w-full rounded-lg border-2 border-sapin bg-creme px-4 py-4 text-lg"
+                />
+                <button
+                  type="submit"
+                  className="mt-4 block w-full rounded-lg bg-sapin px-6 py-4 text-center text-lg font-bold text-creme"
+                >
+                  Connecter ma boutique
+                </button>
+              </form>
+            )}
           </section>
         </>
       )}
