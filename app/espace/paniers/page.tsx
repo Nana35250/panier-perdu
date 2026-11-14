@@ -12,6 +12,8 @@ type Panier = {
   montant_centimes: number;
   devise: string;
   abandonne_le: string;
+  relance1_le: string | null;
+  relance2_le: string | null;
 };
 
 function euros(centimes: number, devise: string) {
@@ -19,6 +21,10 @@ function euros(centimes: number, devise: string) {
     style: "currency",
     currency: devise,
   }).format(centimes / 100);
+}
+
+function date(iso: string) {
+  return new Date(iso).toLocaleDateString("fr-FR");
 }
 
 export default async function PagePaniers({
@@ -45,7 +51,9 @@ export default async function PagePaniers({
   if (ids.length > 0) {
     const { data } = await admin
       .from("paniers")
-      .select("id, email, prenom, produits, montant_centimes, devise, abandonne_le")
+      .select(
+        "id, email, prenom, produits, montant_centimes, devise, abandonne_le, relance1_le, relance2_le"
+      )
       .in("boutique_id", ids)
       .order("abandonne_le", { ascending: false })
       .limit(50);
@@ -63,7 +71,22 @@ export default async function PagePaniers({
         Paniers à relancer
       </h1>
 
-      {params.erreur && (
+      {params.envoyees && (
+        <p className="mt-4 rounded border-2 border-sapin p-3">
+          {params.envoyees === "0"
+            ? "Aucune relance à envoyer pour le moment."
+            : `${params.envoyees} relance(s) envoyée(s).`}
+        </p>
+      )}
+
+      {params.erreur === "envoi" && (
+        <p className="mt-4 rounded border-2 border-brique p-3">
+          L’envoi a échoué.
+          {params.detail ? ` ${params.detail}` : ""}
+        </p>
+      )}
+
+      {params.erreur && params.erreur !== "envoi" && (
         <p className="mt-4 rounded border-2 border-brique p-3">
           La lecture des paniers a échoué. Réessaie dans un instant.
         </p>
@@ -76,18 +99,29 @@ export default async function PagePaniers({
         </p>
       ) : (
         <>
-          <form action="/api/shopify/synchroniser" method="POST" className="mt-6">
-            <button
-              type="submit"
-              className="rounded bg-sapin px-5 py-3 font-semibold text-creme"
-            >
-              Actualiser mes paniers
-            </button>
-          </form>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <form action="/api/shopify/synchroniser" method="POST">
+              <button
+                type="submit"
+                className="rounded bg-sapin px-5 py-3 font-semibold text-creme"
+              >
+                Actualiser mes paniers
+              </button>
+            </form>
+            <form action="/api/relances/envoyer" method="POST">
+              <button
+                type="submit"
+                className="rounded bg-brique px-5 py-3 font-semibold text-creme"
+              >
+                Envoyer les relances
+              </button>
+            </form>
+          </div>
 
           <p className="mt-6">
             <strong>{paniers.length}</strong> panier(s) avec e-mail, pour un
-            total de <strong>{euros(total, paniers[0]?.devise ?? "EUR")}</strong>.
+            total de{" "}
+            <strong>{euros(total, paniers[0]?.devise ?? "EUR")}</strong>.
           </p>
 
           <ul className="mt-4 space-y-3">
@@ -102,7 +136,14 @@ export default async function PagePaniers({
                 </p>
                 <p className="mt-1 text-sm">
                   {euros(p.montant_centimes, p.devise)} · abandonné le{" "}
-                  {new Date(p.abandonne_le).toLocaleDateString("fr-FR")}
+                  {date(p.abandonne_le)}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-sapin">
+                  {p.relance2_le
+                    ? `Relance 2 envoyée le ${date(p.relance2_le)}`
+                    : p.relance1_le
+                    ? `Relance 1 envoyée le ${date(p.relance1_le)}`
+                    : "Aucune relance envoyée"}
                 </p>
               </li>
             ))}
