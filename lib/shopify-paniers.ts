@@ -122,15 +122,13 @@ async function jetonValide(boutique: Boutique): Promise<string> {
   return jeton.access_token;
 }
 
-export async function synchroniserPaniers(boutique: Boutique) {
-  const jeton = await jetonValide(boutique);
-  const depuis = new Date(Date.now() - JOURS * 24 * 3600 * 1000)
-    .toISOString()
-    .slice(0, 10);
-  const filtre = `created_at:>=${depuis} recovery_state:not_recovered`;
-
+async function lirePaniers(
+  boutique: Boutique,
+  jeton: string,
+  filtre: string
+): Promise<Noeud[]> {
   let curseur: string | null = null;
-  const lignes: Record<string, unknown>[] = [];
+  const noeuds: Noeud[] = [];
 
   for (let page = 0; page < PAGES_MAX; page++) {
     const reponse: Response = await fetch(
@@ -154,31 +152,99 @@ export async function synchroniserPaniers(boutique: Boutique) {
     const donnees: Reponse = await reponse.json();
     if (donnees.errors || !donnees.data) {
       throw new Error(
-        "Shopify : " + JSON.stringify(donnees.errors ?? "pas de données").slice(0, 400)
+        "Shopify : " +
+          JSON.stringify(donnees.errors ?? "pas de données").slice(0, 400)
       );
     }
 
     const connexion: Connexion = donnees.data.abandonedCheckouts;
-    for (const n of connexion.nodes) {
-      const email = n.customer?.email ?? null;
-      if (!email || n.completedAt) continue;
-      lignes.push({
-        boutique_id: boutique.id,
-        shopify_id: n.id,
-        email,
-        prenom: n.customer?.firstName ?? null,
-        produits: n.lineItems.nodes,
-        montant_centimes: Math.round(
-          parseFloat(n.totalPriceSet.shopMoney.amount) * 100
-        ),
-        devise: n.totalPriceSet.shopMoney.currencyCode,
-        lien_reprise: n.abandonedCheckoutUrl,
-        abandonne_le: n.createdAt,
-      });
-    }
+    noeuds.push(...connexion.nodes);
 
     if (!connexion.pageInfo.hasNextPage) break;
     curseur = connexion.pageInfo.endCursor;
+  }
+
+  return noeuds;
+}
+
+async function detecterRecuperations(boutique: Boutique, jeton: string) {
+  const depuis = new Date(Date.now() - JOURS * 24 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const achetes = await lirePaniers(
+    boutique,
+    jeton,
+    `created_at:>=${depuis} recovery_state:recovered`
+  );
+  if (achetes.length === 0) return 0;
+
+  const admin = clientAdmin();
+  const { data: candidats, error } = await admin
+    .from("paniers")
+    .select("id, shopify_id, relance1_le, montant_centimes")
+    .eq("boutique_id", boutique.id)
+    .in(
+      "shopify_id",
+      achetes.map((n) => n.id)
+    )
+    .is("recupere_le", null)
+    .not("relance1_le", "is", null);
+  if (error) throw new Error("Lecture des achats : " + error.message);
+
+  let recuperes = 0;
+  for (const c of candidats ?? []) {
+    const noeud = achetes.find((n) => n.id === c.shopify_id);
+    if (!noeud) continue;
+    const dateAchat = noeud.completedAt
+      ? new Date(noeud.completedAt)
+      : new Date();
+    // On ne compte que les achats faits APRÈS l'envoi d'une relance.
+    if (dateAchat.getTime() < new Date(c.relance1_le as string).getTime()) {
+      continue;
+    }
+    const montant = Math.round(
+      parseFloat(noeud.totalPriceSet.shopMoney.amount) * 100
+    );
+    const { error: erreurMaj } = await admin
+      .from("paniers")
+      .update({
+        recupere_le: dateAchat.toISOString(),
+        montant_recupere_centimes: montant,
+        devise: noeud.totalPriceSet.shopMoney.currencyCode,
+      })
+      .eq("id", c.id);
+    if (erreurMaj) throw new Error("Enregistrement achat : " + erreurMaj.message);
+    recuperes += 1;
+  }
+  return recuperes;
+}
+
+export async function synchroniserPaniers(boutique: Boutique) {
+  const jeton = await jetonValide(boutique);
+  const depuis = new Date(Date.now() - JOURS * 24 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const filtre = `created_at:>=${depuis} recovery_state:not_recovered`;
+
+  const noeuds = await lirePaniers(boutique, jeton, filtre);
+  const lignes: Record<string, unknown>[] = [];
+
+  for (const n of noeuds) {
+    const email = n.customer?.email ?? null;
+    if (!email || n.completedAt) continue;
+    lignes.push({
+      boutique_id: boutique.id,
+      shopify_id: n.id,
+      email,
+      prenom: n.customer?.firstName ?? null,
+      produits: n.lineItems.nodes,
+      montant_centimes: Math.round(
+        parseFloat(n.totalPriceSet.shopMoney.amount) * 100
+      ),
+      devise: n.totalPriceSet.shopMoney.currencyCode,
+      lien_reprise: n.abandonedCheckoutUrl,
+      abandonne_le: n.createdAt,
+    });
   }
 
   if (lignes.length > 0) {
@@ -188,5 +254,7 @@ export async function synchroniserPaniers(boutique: Boutique) {
     if (error) throw new Error("Enregistrement : " + error.message);
   }
 
-  return { enregistres: lignes.length };
+  const recuperes = await detecterRecuperations(boutique, jeton);
+
+  return { enregistres: lignes.length, recuperes };
 }
