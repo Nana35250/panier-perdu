@@ -73,7 +73,9 @@ export async function synchroniserPaniers(boutique: Boutique) {
     }
     const donnees: Reponse = await reponse.json();
     if (donnees.errors || !donnees.data) {
-      throw new Error("Shopify a refusé la lecture des paniers.");
+      throw new Error(
+        "Shopify : " + JSON.stringify(donnees.errors ?? "pas de données").slice(0, 400)
+      );
     }
 
     const connexion: Connexion = donnees.data.abandonedCheckouts;
@@ -103,7 +105,7 @@ export async function synchroniserPaniers(boutique: Boutique) {
     const { error } = await clientAdmin()
       .from("paniers")
       .upsert(lignes, { onConflict: "boutique_id,shopify_id" });
-    if (error) throw new Error("Enregistrement des paniers impossible.");
+    if (error) throw new Error("Enregistrement : " + error.message);
   }
 
   return { enregistres: lignes.length };
