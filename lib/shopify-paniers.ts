@@ -33,6 +33,16 @@ type Noeud = {
   lineItems: { nodes: { title: string; quantity: number }[] };
 };
 
+type Connexion = {
+  nodes: Noeud[];
+  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+};
+
+type Reponse = {
+  errors?: unknown;
+  data?: { abandonedCheckouts: Connexion };
+};
+
 export async function synchroniserPaniers(boutique: Boutique) {
   const jeton = dechiffrer(boutique.jeton_chiffre);
   const depuis = new Date(Date.now() - JOURS * 24 * 3600 * 1000)
@@ -40,12 +50,11 @@ export async function synchroniserPaniers(boutique: Boutique) {
     .slice(0, 10);
   const filtre = `created_at:>=${depuis} recovery_state:not_recovered`;
 
-  let apres: string | null = null;
-  let lus = 0;
+  let curseur: string | null = null;
   const lignes: Record<string, unknown>[] = [];
 
   for (let page = 0; page < PAGES_MAX; page++) {
-    const reponse = await fetch(
+    const reponse: Response = await fetch(
       `https://${boutique.domaine}/admin/api/${VERSION_API}/graphql.json`,
       {
         method: "POST",
@@ -53,20 +62,22 @@ export async function synchroniserPaniers(boutique: Boutique) {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": jeton,
         },
-        body: JSON.stringify({ query: REQUETE, variables: { apres, filtre } }),
+        body: JSON.stringify({
+          query: REQUETE,
+          variables: { apres: curseur, filtre },
+        }),
       }
     );
     if (!reponse.ok) {
       throw new Error(`Shopify a répondu ${reponse.status}.`);
     }
-    const donnees = await reponse.json();
-    if (donnees.errors) {
+    const donnees: Reponse = await reponse.json();
+    if (donnees.errors || !donnees.data) {
       throw new Error("Shopify a refusé la lecture des paniers.");
     }
 
-    const connexion = donnees.data.abandonedCheckouts;
-    for (const n of connexion.nodes as Noeud[]) {
-      lus++;
+    const connexion: Connexion = donnees.data.abandonedCheckouts;
+    for (const n of connexion.nodes) {
       const email = n.customer?.email ?? null;
       if (!email || n.completedAt) continue;
       lignes.push({
@@ -85,7 +96,7 @@ export async function synchroniserPaniers(boutique: Boutique) {
     }
 
     if (!connexion.pageInfo.hasNextPage) break;
-    apres = connexion.pageInfo.endCursor;
+    curseur = connexion.pageInfo.endCursor;
   }
 
   if (lignes.length > 0) {
@@ -95,5 +106,5 @@ export async function synchroniserPaniers(boutique: Boutique) {
     if (error) throw new Error("Enregistrement des paniers impossible.");
   }
 
-  return { lus, enregistres: lignes.length };
+  return { enregistres: lignes.length };
 }
