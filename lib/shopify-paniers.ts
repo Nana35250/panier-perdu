@@ -1,9 +1,10 @@
 import { clientAdmin } from "@/lib/supabase-serveur";
-import { dechiffrer } from "@/lib/chiffrement";
+import { dechiffrer, chiffrer } from "@/lib/chiffrement";
 
 const VERSION_API = "2026-01";
 const JOURS = 60;
 const PAGES_MAX = 4;
+const MARGE_MS = 5 * 60 * 1000;
 
 const REQUETE = `
 query Paniers($apres: String, $filtre: String) {
@@ -43,8 +44,86 @@ type Reponse = {
   data?: { abandonedCheckouts: Connexion };
 };
 
+type ReponseJeton = {
+  access_token?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
+};
+
+async function jetonValide(boutique: Boutique): Promise<string> {
+  const admin = clientAdmin();
+  const { data } = await admin
+    .from("boutiques")
+    .select("jeton_chiffre, jeton_expire_le, renouvellement_chiffre")
+    .eq("id", boutique.id)
+    .single();
+  if (!data) throw new Error("Boutique introuvable.");
+
+  const expire = data.jeton_expire_le
+    ? new Date(data.jeton_expire_le).getTime()
+    : null;
+  if (expire === null || expire > Date.now() + MARGE_MS) {
+    return dechiffrer(data.jeton_chiffre);
+  }
+
+  if (!data.renouvellement_chiffre) {
+    throw new Error("Clé expirée : reconnecte ta boutique.");
+  }
+  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const secret = process.env.SHOPIFY_CLIENT_SECRET;
+  if (!clientId || !secret) throw new Error("Identifiants Shopify manquants.");
+
+  const reponse = await fetch(
+    `https://${boutique.domaine}/admin/oauth/access_token`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: secret,
+        grant_type: "refresh_token",
+        refresh_token: dechiffrer(data.renouvellement_chiffre),
+      }),
+    }
+  );
+  if (!reponse.ok) {
+    throw new Error(
+      `Renouvellement refusé (${reponse.status}) : reconnecte ta boutique.`
+    );
+  }
+  const jeton: ReponseJeton = await reponse.json();
+  if (!jeton.access_token) throw new Error("Renouvellement sans clé.");
+
+  const maintenant = Date.now();
+  const { error } = await admin
+    .from("boutiques")
+    .update({
+      jeton_chiffre: chiffrer(jeton.access_token),
+      jeton_expire_le: jeton.expires_in
+        ? new Date(maintenant + jeton.expires_in * 1000).toISOString()
+        : null,
+      renouvellement_chiffre: jeton.refresh_token
+        ? chiffrer(jeton.refresh_token)
+        : data.renouvellement_chiffre,
+      renouvellement_expire_le: jeton.refresh_token_expires_in
+        ? new Date(
+            maintenant + jeton.refresh_token_expires_in * 1000
+          ).toISOString()
+        : null,
+      mis_a_jour_le: new Date().toISOString(),
+    })
+    .eq("id", boutique.id);
+  if (error) throw new Error("Enregistrement de la nouvelle clé impossible.");
+
+  return jeton.access_token;
+}
+
 export async function synchroniserPaniers(boutique: Boutique) {
-  const jeton = dechiffrer(boutique.jeton_chiffre);
+  const jeton = await jetonValide(boutique);
   const depuis = new Date(Date.now() - JOURS * 24 * 3600 * 1000)
     .toISOString()
     .slice(0, 10);
