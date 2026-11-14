@@ -69,7 +69,8 @@ export async function synchroniserPaniers(boutique: Boutique) {
       }
     );
     if (!reponse.ok) {
-      throw new Error(`Shopify a répondu ${reponse.status}.`);
+      const corps = (await reponse.text()).slice(0, 300);
+      throw new Error(`Shopify a répondu ${reponse.status} : ${corps}`);
     }
     const donnees: Reponse = await reponse.json();
     if (donnees.errors || !donnees.data) {
