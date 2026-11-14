@@ -19,13 +19,16 @@ export async function POST(requete: Request) {
     .eq("utilisateur_id", user.id);
 
   try {
-    let enregistres = 0;
     for (const boutique of boutiques ?? []) {
-      const resultat = await synchroniserPaniers(boutique);
-      enregistres += resultat.enregistres;
+      await synchroniserPaniers(boutique);
     }
-    return NextResponse.redirect(`${origine}/espace?paniers=${enregistres}`, 303);
-  } catch {
-    return NextResponse.redirect(`${origine}/espace?erreur=paniers`, 303);
+    return NextResponse.redirect(`${origine}/espace/paniers`, 303);
+  } catch (erreur) {
+    console.error("Synchronisation des paniers :", erreur);
+    const detail = erreur instanceof Error ? erreur.message : "inconnue";
+    return NextResponse.redirect(
+      `${origine}/espace/paniers?erreur=1&detail=${encodeURIComponent(detail)}`,
+      303
+    );
   }
 }
