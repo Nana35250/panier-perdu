@@ -43,10 +43,12 @@ export default async function PagePaniers({
   const admin = clientAdmin();
   const { data: boutiques } = await admin
     .from("boutiques")
-    .select("id, domaine")
+    .select("id, domaine, code_reduction")
     .eq("utilisateur_id", user.id);
 
   const ids = (boutiques ?? []).map((b) => b.id);
+  const codeActuel = (boutiques?.[0]?.code_reduction as string | null) ?? "";
+
   let paniers: Panier[] = [];
   if (ids.length > 0) {
     const { data } = await admin
@@ -79,6 +81,19 @@ export default async function PagePaniers({
         </p>
       )}
 
+      {params.code === "ok" && (
+        <p className="mt-4 rounded border-2 border-sapin p-3">
+          Code de réduction enregistré.
+        </p>
+      )}
+
+      {params.erreur === "code" && (
+        <p className="mt-4 rounded border-2 border-brique p-3">
+          Ce code n’est pas valide. Utilise seulement des lettres, des chiffres,
+          des tirets ou des tirets bas (40 caractères au plus).
+        </p>
+      )}
+
       {params.erreur === "envoi" && (
         <p className="mt-4 rounded border-2 border-brique p-3">
           L’envoi a échoué.
@@ -86,7 +101,7 @@ export default async function PagePaniers({
         </p>
       )}
 
-      {params.erreur && params.erreur !== "envoi" && (
+      {params.erreur === "1" && (
         <p className="mt-4 rounded border-2 border-brique p-3">
           La lecture des paniers a échoué. Réessaie dans un instant.
         </p>
@@ -117,6 +132,37 @@ export default async function PagePaniers({
               </button>
             </form>
           </div>
+
+          <form
+            action="/api/boutique/reglages"
+            method="POST"
+            className="mt-6 rounded border-2 border-sapin p-4"
+          >
+            <label htmlFor="code" className="block font-semibold">
+              Code de réduction de la 2e relance (facultatif)
+            </label>
+            <p className="mt-1 text-sm">
+              Crée ce code dans l’administration de ta boutique Shopify, puis
+              recopie-le ici. Laisse vide pour ne proposer aucune réduction.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <input
+                id="code"
+                name="code"
+                type="text"
+                defaultValue={codeActuel}
+                maxLength={40}
+                placeholder="RETOUR10"
+                className="rounded border-2 border-sapin bg-white px-3 py-2"
+              />
+              <button
+                type="submit"
+                className="rounded bg-sapin px-5 py-2 font-semibold text-creme"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </form>
 
           <p className="mt-6">
             <strong>{paniers.length}</strong> panier(s) avec e-mail, pour un
