@@ -33,8 +33,29 @@ export default async function Espace({
 
   const { data: boutiques } = await base
     .from("boutiques")
-    .select("domaine")
+    .select("id, domaine")
     .eq("utilisateur_id", utilisateurId);
+
+  let totalCentimes = 0;
+  let devise = "EUR";
+  let nombreRecuperes = 0;
+  const identifiants = (boutiques ?? []).map((b) => b.id);
+  if (identifiants.length > 0) {
+    const { data: recuperes } = await base
+      .from("paniers")
+      .select("montant_recupere_centimes, devise")
+      .in("boutique_id", identifiants)
+      .not("recupere_le", "is", null);
+    for (const r of recuperes ?? []) {
+      totalCentimes += r.montant_recupere_centimes ?? 0;
+      devise = r.devise || devise;
+      nombreRecuperes += 1;
+    }
+  }
+  const montantAffiche = new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: devise,
+  }).format(totalCentimes / 100);
 
   const abonnement = lignes?.[0];
 
@@ -114,11 +135,12 @@ export default async function Espace({
               Chiffre d’affaires récupéré
             </h2>
             <p className="font-titre mt-3 text-6xl font-black text-brique">
-              0 €
+              {montantAffiche}
             </p>
             <p className="mt-2 leading-relaxed text-encre/70">
-              Dès que tes relances partiront, tu verras ici l’argent revenu
-              grâce à elles.
+              {nombreRecuperes > 0
+                ? `${nombreRecuperes} panier(s) récupéré(s) grâce à tes relances.`
+                : "Dès qu’un client achètera après une relance, tu verras ici l’argent revenu grâce à elle."}
             </p>
           </section>
 
@@ -152,9 +174,12 @@ export default async function Espace({
                     {b.domaine}
                   </p>
                 ))}
-                <p className="mt-2 text-sm text-encre/70">
-                  La lecture des paniers abandonnés arrive à l’étape suivante.
-                </p>
+                <Link
+                  href="/espace/paniers"
+                  className="mt-4 block rounded-lg bg-brique px-6 py-4 text-center text-lg font-bold text-creme"
+                >
+                  Voir mes paniers abandonnés
+                </Link>
               </div>
             ) : (
               <form action="/api/shopify/install" method="get" className="mt-4">
