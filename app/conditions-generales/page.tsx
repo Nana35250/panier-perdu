@@ -61,7 +61,7 @@ export default function ConditionsGenerales() {
         Conditions générales de vente
       </h1>
       <p className="mt-2 text-sm text-encre/70">
-        Dernière mise à jour : <Champ>date</Champ>
+        Dernière mise à jour : 15 novembre 2026
       </p>
 
       {articles.map((a) => (
