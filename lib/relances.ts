@@ -3,6 +3,7 @@ import { clientAdmin } from "@/lib/supabase-serveur";
 const DELAI_RELANCE_1_MS = 60 * 60 * 1000;
 const DELAI_RELANCE_2_MS = 24 * 60 * 60 * 1000;
 const EXPEDITEUR = "Panier Perdu <relance@panier-perdu.eu>";
+const REPONDRE_A = "contact@panier-perdu.eu";
 
 type Produit = { title: string; quantity: number };
 
@@ -48,6 +49,8 @@ function composer(panier: Panier, boutique: Boutique, numero: 1 | 2) {
     ? `Pour vous remercier, voici un code de réduction à saisir au moment du paiement : ${code}`
     : null;
 
+  const mention = `Vous recevez cet e-mail parce que vous avez commencé une commande sur ${boutique.nom}. Pour ne plus recevoir ces e-mails, répondez simplement « STOP » à ce message.`;
+
   const texte = [
     salutation,
     "",
@@ -59,6 +62,9 @@ function composer(panier: Panier, boutique: Boutique, numero: 1 | 2) {
     `Reprendre ma commande : ${panier.lien_reprise}`,
     "",
     `L’équipe ${boutique.nom}`,
+    "",
+    "--",
+    mention,
   ].join("\n");
 
   const blocCode = code
@@ -76,7 +82,8 @@ ${lignes.map((l) => `<li>${echapper(l)}</li>`).join("\n")}
 <p style="margin:0 0 24px;"><strong>Total : ${echapper(total)}</strong></p>
 ${blocCode}
 <p style="margin:0 0 24px;"><a href="${echapper(panier.lien_reprise)}" style="background:#14342b;color:#faf6ee;padding:14px 24px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Reprendre ma commande</a></p>
-<p style="margin:0;color:#555;">L’équipe ${echapper(boutique.nom)}</p>
+<p style="margin:0 0 24px;color:#555;">L’équipe ${echapper(boutique.nom)}</p>
+<p style="margin:0;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#777;">${echapper(mention)}</p>
 </div></body></html>`;
 
   const sujet =
@@ -106,7 +113,7 @@ export async function envoyerRelances(
   const admin = clientAdmin();
   let requeteBoutiques = admin
     .from("boutiques")
-    .select("id, domaine, code_reduction");
+    .select("id, domaine, code_reduction, nom");
   if (utilisateurId) {
     requeteBoutiques = requeteBoutiques.eq("utilisateur_id", utilisateurId);
   }
@@ -116,7 +123,9 @@ export async function envoyerRelances(
     (lignesBoutiques ?? []).map((b) => [
       b.id as string,
       {
-        nom: (b.domaine as string).replace(".myshopify.com", ""),
+        nom:
+          (b.nom as string | null) ??
+          (b.domaine as string).replace(".myshopify.com", ""),
         code: (b.code_reduction as string | null) ?? null,
       },
     ])
@@ -179,6 +188,7 @@ export async function envoyerRelances(
       },
       body: JSON.stringify({
         from: EXPEDITEUR,
+        reply_to: REPONDRE_A,
         to: [panier.email],
         subject: mail.sujet,
         html: mail.html,
