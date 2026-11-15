@@ -39,7 +39,7 @@ export default function MentionsLegales() {
           Adresse : <Champ>adresse postale</Champ>
         </p>
         <p>
-          Adresse électronique : <Champ>adresse e-mail de contact</Champ>
+          Adresse électronique : contact@panier-perdu.eu
         </p>
       </section>
 
