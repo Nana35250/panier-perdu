@@ -2,7 +2,7 @@ import { clientAdmin } from "@/lib/supabase-serveur";
 
 const DELAI_RELANCE_1_MS = 60 * 60 * 1000;
 const DELAI_RELANCE_2_MS = 24 * 60 * 60 * 1000;
-const EXPEDITEUR = "Panier Perdu <onboarding@resend.dev>";
+const EXPEDITEUR = "Panier Perdu <relance@panier-perdu.eu>";
 
 type Produit = { title: string; quantity: number };
 
