@@ -1,4 +1,5 @@
 import { clientAdmin } from "@/lib/supabase-serveur";
+import { enregistrerNom } from "@/lib/nom-boutique";
 import { dechiffrer, chiffrer } from "@/lib/chiffrement";
 
 const VERSION_API = "2026-01";
@@ -220,7 +221,8 @@ async function detecterRecuperations(boutique: Boutique, jeton: string) {
 }
 
 export async function synchroniserPaniers(boutique: Boutique) {
-  const jeton = await jetonValide(boutique);
+ const jeton = await jetonValide(boutique);
+  await enregistrerNom(boutique, jeton);
   const depuis = new Date(Date.now() - JOURS * 24 * 3600 * 1000)
     .toISOString()
     .slice(0, 10);
